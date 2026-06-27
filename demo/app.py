@@ -106,6 +106,10 @@ def main():
     st.markdown('<div class="main-header">📊 Fin Research Agent</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">多源异构金融研究助手 · Bull/Bear 结构化分析</div>', unsafe_allow_html=True)
 
+    # Initialize session state for query
+    if "query" not in st.session_state:
+        st.session_state.query = ""
+
     # Sidebar
     with st.sidebar:
         st.header("🔧 配置")
@@ -147,8 +151,8 @@ def main():
         # Query input
         query = st.text_input(
             "输入你的研究问题",
-            placeholder="例如：Dell未来业绩怎么看？HBM扩产比例？光模块行业趋势？",
-            key="query_input"
+            value=st.session_state.query,
+            placeholder="例如：Dell未来业绩怎么看？HBM扩产比例？光模块行业趋势？"
         )
 
         # Quick query buttons
@@ -156,15 +160,15 @@ def main():
         quick_cols = st.columns(3)
         with quick_cols[0]:
             if st.button("Dell未来业绩怎么看", use_container_width=True):
-                st.session_state.query_input = "Dell未来业绩怎么看"
+                st.session_state.query = "Dell未来业绩怎么看"
                 st.rerun()
         with quick_cols[1]:
             if st.button("HBM扩产比例", use_container_width=True):
-                st.session_state.query_input = "HBM扩产比例"
+                st.session_state.query = "HBM扩产比例"
                 st.rerun()
         with quick_cols[2]:
             if st.button("光模块行业趋势", use_container_width=True):
-                st.session_state.query_input = "光模块行业趋势"
+                st.session_state.query = "光模块行业趋势"
                 st.rerun()
 
     with col2:
