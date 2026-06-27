@@ -18,7 +18,7 @@ class Viewpoint:
     """A single bullish or bearish viewpoint."""
     content: str
     source: str
-    source_type: str  # e.g., "久谦中台", "AlphaEngine"
+    source_type: str  # e.g., "专家访谈", "AlphaEngine"
     source_date: str
     confidence: str  # "高", "中", "低"
 

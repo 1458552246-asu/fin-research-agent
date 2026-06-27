@@ -1,7 +1,21 @@
-"""Source tracer - generates human-readable source citations."""
+"""Source tracer - generates human-readable source citations with KB preview URLs.
+
+Based on aichat-kb-search/runtime/source_tracer.py
+Provides document source tracking and preview URL generation for KB documents.
+"""
 
 from typing import Dict, List
 from .config import KB_ID_TO_NAME
+
+# KB API base URL for preview links (same as aichat-kb-search)
+KB_PREVIEW_BASE = "http://3.128.243.191:8001"
+
+
+def get_preview_url(file_id: int) -> str:
+    """Generate KB preview URL for a file."""
+    if not file_id:
+        return ""
+    return f"{KB_PREVIEW_BASE}/files/preview/{file_id}/"
 
 
 class SourceTracer:
@@ -22,26 +36,32 @@ class SourceTracer:
         date = source.get("date", source.get("uploaded_at", ""))
         author = source.get("author", "")
         snippet = source.get("snippet", source.get("content", ""))[:200]
+        is_mock = source.get("is_mock", False)
 
         # Build description based on source type
-        if source_type == "Twitter推文":
+        if source_type == "Twitter推文" or "twitter" in source_type.lower():
             description = f"@{author} · {date}"
-        elif source_type in ("久谦中台", "专家访谈"):
-            description = f"久谦中台 · 专家访谈 · {date}《{title}》"
-        elif source_type in ("AlphaEngine", "研报"):
+        elif source_type in ("专家访谈", "久谦中台"):
+            description = f"专家访谈 · {author} · {date}《{title}》"
+        elif source_type.lower() in ("alphaengine", "alpha", "研报"):
             description = f"AlphaEngine · {author} · {date}《{title}》"
         elif source_type == "AceCampTech":
             description = f"AceCampTech · {author} · {date}《{title}》"
-        elif source_type == "Substack":
+        elif "substack" in source_type.lower():
             description = f"Substack · {author} · {date}《{title}》"
+        elif source_type == "联网搜索":
+            # Web search results
+            description = f"🌐 {author} · {date}《{title}》" if date else f"🌐 {author}《{title}》"
         else:
             description = f"{source_type} · {date}《{title}》"
 
-        # Build preview URL (demo mode uses placeholder)
-        if file_id:
-            url = f"#preview-{file_id}"  # In production: actual preview URL
+        # Build preview URL - use real KB URL for non-mock data
+        if file_id and not is_mock:
+            url = get_preview_url(file_id)
+        elif source.get("url"):
+            url = source.get("url")
         else:
-            url = source.get("url", "#")
+            url = ""
 
         return {
             "description": description,
@@ -51,6 +71,8 @@ class SourceTracer:
             "date": date,
             "file_id": file_id,
             "url": url,
+            "is_web_source": source_type == "联网搜索",
+            "is_mock": is_mock,
         }
 
     def format_sources(self, sources: List[Dict]) -> List[Dict]:
@@ -76,3 +98,20 @@ class SourceTracer:
                 groups[source_type] = []
             groups[source_type].append(src)
         return groups
+
+    def separate_kb_and_web_sources(self, sources: List[Dict]) -> tuple:
+        """Separate KB sources and web search sources.
+
+        Returns:
+            Tuple of (kb_sources, web_sources)
+        """
+        kb_sources = []
+        web_sources = []
+
+        for src in sources:
+            if src.get("is_web_source") or src.get("source_type") == "联网搜索":
+                web_sources.append(src)
+            else:
+                kb_sources.append(src)
+
+        return kb_sources, web_sources

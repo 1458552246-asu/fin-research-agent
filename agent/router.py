@@ -5,6 +5,7 @@ from .config import DEFAULT_KB_IDS, KB_KEYWORD_MAP
 
 
 # Intent patterns with keywords and KB priorities
+# Note: All intents now query ALL KBs by default, but priority still matters for ranking
 INTENT_PATTERNS = {
     "earnings_call": {
         "keywords": [
@@ -12,7 +13,7 @@ INTENT_PATTERNS = {
             "conference call", "业绩说明会", "财报", "quarterly",
             "季度业绩", "q1", "q2", "q3", "q4", "年报",
         ],
-        "kb_priority": [28, 17, 19],  # AlphaEngine -> 久谦 -> AceCamp
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "业绩会/财报查询",
     },
     "expert_interview": {
@@ -20,7 +21,7 @@ INTENT_PATTERNS = {
             "expert", "专家", "访谈", "interview", "专家访谈",
             "调研纪要", "1x1", "专家交流", "产业链调研", "草根调研",
         ],
-        "kb_priority": [17, 19, 28],  # 久谦 -> AceCamp -> AlphaEngine
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "专家访谈",
     },
     "social_media": {
@@ -28,7 +29,7 @@ INTENT_PATTERNS = {
             "twitter", "tweet", "推文", "推特", "最新消息",
             "最新动态", "社交媒体", "substack", "newsletter",
         ],
-        "kb_priority": [18, 21, 19],  # Twitter -> Substack -> AceCamp
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "社交媒体/最新动态",
     },
     "research_report": {
@@ -36,7 +37,7 @@ INTENT_PATTERNS = {
             "report", "研报", "研究报告", "深度报告", "行业报告",
             "分析", "coverage", "评级", "目标价", "买入", "卖出",
         ],
-        "kb_priority": [28, 19, 17],  # AlphaEngine -> AceCamp -> 久谦
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "研报/研究分析",
     },
     "company_outlook": {
@@ -44,7 +45,7 @@ INTENT_PATTERNS = {
             "怎么看", "outlook", "展望", "未来", "前景",
             "业绩", "预期", "guidance", "增长", "趋势",
         ],
-        "kb_priority": [28, 17, 19],  # AlphaEngine -> 久谦 -> AceCamp
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "公司展望分析",
     },
     "industry_trend": {
@@ -52,7 +53,7 @@ INTENT_PATTERNS = {
             "行业", "industry", "趋势", "trend", "景气度",
             "周期", "格局", "产业链", "渗透率", "市场规模",
         ],
-        "kb_priority": [17, 19, 28],  # 久谦 -> AceCamp -> AlphaEngine
+        "kb_priority": DEFAULT_KB_IDS,  # Query all KBs
         "description": "行业趋势",
     },
     "data_comparison": {
