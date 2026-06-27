@@ -107,7 +107,7 @@ class BullBearAnalyzer:
 
         try:
             response = self._client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-opus-4-6-20250228",
                 max_tokens=2000,
                 system=BULL_BEAR_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}]

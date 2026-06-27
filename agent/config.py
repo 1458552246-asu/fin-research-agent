@@ -19,7 +19,7 @@ class Config:
     # LLM API for Bull/Bear analysis (OpenAI-compatible)
     LLM_API_KEY = os.getenv("LLM_API_KEY", "")
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
+    LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-4-6-20250228")
 
     # Legacy support for ANTHROPIC_API_KEY
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
