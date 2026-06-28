@@ -58,19 +58,105 @@ class LLMClient:
 
     def _mock_response(self, prompt: str) -> str:
         """Return mock response when API unavailable."""
-        return json.dumps({
-            "recommendation": "持有",
-            "confidence": 65,
-            "rationale": "AI服务器业务增长强劲，但毛利率压力和竞争加剧带来不确定性。建议等待更多数据验证。",
-            "key_risks": ["GPU服务器毛利率持续低迷", "NVIDIA供货分配不确定", "传统业务下滑超预期"],
-            "catalysts": ["FY26 Q2毛利率改善", "新企业AI订单公告", "GB200出货超预期"],
-            "tracking_metrics": [
-                {"metric": "AI服务器毛利率", "direction": "上升", "importance": "high"},
-                {"metric": "订单积压金额", "direction": "稳定", "importance": "high"}
-            ],
-            "time_horizon": "中期",
-            "thesis_summary": "Dell正处于AI转型关键期。AI服务器业务增长强劲但毛利率承压，传统业务持续下滑。短期内收入质量与增长速度的权衡是主要矛盾。建议关注毛利率趋势和竞争格局变化。"
-        }, ensure_ascii=False)
+        # Extract query from prompt to provide relevant mock response
+        import re
+        query_match = re.search(r'【用户问题】\s*\n(.+?)\n', prompt)
+        query_text = query_match.group(1).lower() if query_match else prompt.lower()
+
+        if "nvidia" in query_text or "英伟达" in query_text or "nvda" in query_text:
+            return json.dumps({
+                "recommendation": "买入",
+                "confidence": 78,
+                "rationale": "NVIDIA在AI芯片领域保持绝对领先，Blackwell架构供不应求，业绩持续超预期。估值偏高但由强劲基本面支撑。",
+                "key_risks": ["估值处于历史高位", "云厂商自研芯片长期威胁", "中国市场受限影响收入"],
+                "catalysts": ["Blackwell出货量超预期", "企业AI渗透率加速", "主权AI新订单"],
+                "tracking_metrics": [
+                    {"metric": "数据中心收入增速", "direction": "上升", "importance": "high"},
+                    {"metric": "毛利率", "direction": "稳定", "importance": "high"},
+                    {"metric": "CoWoS产能利用率", "direction": "上升", "importance": "medium"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "NVIDIA是AI时代最确定的赢家。数据中心收入同比+73%，Blackwell供不应求，订单可见度高。主要风险是估值和长期竞争。短期受益于AI资本开支加速，建议逢回调加仓。"
+            }, ensure_ascii=False)
+
+        elif "hbm" in query_text or "海力士" in query_text or "存储" in query_text or "扩产" in query_text:
+            return json.dumps({
+                "recommendation": "买入",
+                "confidence": 72,
+                "rationale": "HBM是AI芯片核心瓶颈，供需严重失衡。SK海力士技术领先，与NVIDIA深度绑定，短期价格坚挺。",
+                "key_risks": ["2027年产能释放后可能供过于求", "HBM3E良率仅80-85%", "三星追赶缩小差距"],
+                "catalysts": ["HBM4量产进度超预期", "AI资本开支持续加码", "合约价格持续上涨"],
+                "tracking_metrics": [
+                    {"metric": "HBM合约价格走势", "direction": "上升", "importance": "high"},
+                    {"metric": "HBM3E良率", "direction": "上升", "importance": "high"},
+                    {"metric": "AI芯片客户资本开支", "direction": "上升", "importance": "medium"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "HBM是存储行业最确定的增长点。SK海力士HBM收入同比+320%，产能利用率超100%，与NVIDIA多年供应协议锁定。主要关注2027年产能释放后的供需平衡和价格走势。短期供需失衡确定性高，看多。"
+            }, ensure_ascii=False)
+
+        elif "kkr" in query_text or "apollo" in query_text or "blackstone" in query_text or "资管" in query_text:
+            return json.dumps({
+                "recommendation": "买入",
+                "confidence": 68,
+                "rationale": "另类资管行业受益于私人信贷增长和并购市场回暖。KKR增速最快，Apollo信贷最强，Blackstone规模领先。",
+                "key_risks": ["利率高位压制并购活动", "PE退出环境仍不理想", "信贷违约率抬头"],
+                "catalysts": ["降息启动提振估值", "并购市场回暖", "Wealth management渠道扩展"],
+                "tracking_metrics": [
+                    {"metric": "FRE增速", "direction": "上升", "importance": "high"},
+                    {"metric": "AUM增长", "direction": "上升", "importance": "high"},
+                    {"metric": "私人信贷违约率", "direction": "稳定", "importance": "medium"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "另类资管行业处于结构性增长通道。私人信贷和基础设施是核心驱动力。KKR在增速和执行力上相对领先，2026下半年并购回暖将是催化剂。"
+            }, ensure_ascii=False)
+
+        elif "tesla" in query_text or "特斯拉" in query_text or "fsd" in query_text or "马斯克" in query_text:
+            return json.dumps({
+                "recommendation": "持有",
+                "confidence": 55,
+                "rationale": "Tesla估值高度依赖FSD/Robotaxi预期，但专家判断时间表过于激进。汽车业务承压，储能是亮点。",
+                "key_risks": ["Robotaxi延迟导致估值下修", "汽车毛利率持续下降", "中国市场竞争加剧"],
+                "catalysts": ["Robotaxi按时推出", "FSD V13技术突破", "储能业务加速增长"],
+                "tracking_metrics": [
+                    {"metric": "FSD接管率", "direction": "下降", "importance": "high"},
+                    {"metric": "汽车毛利率", "direction": "稳定", "importance": "high"},
+                    {"metric": "储能业务增速", "direction": "上升", "importance": "medium"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "Tesla当前估值50%依赖FSD/Robotaxi，但实际进展与Musk宣传存在差距。储能业务是确定性亮点。建议等待Robotaxi实际进展再做判断。"
+            }, ensure_ascii=False)
+
+        elif "tsmc" in query_text or "台积电" in query_text or "cowos" in query_text or "封装" in query_text:
+            return json.dumps({
+                "recommendation": "买入",
+                "confidence": 75,
+                "rationale": "台积电CoWoS是AI芯片最关键瓶颈，市场份额超90%，定价能力极强。扩产虽有执行风险但需求确定。",
+                "key_risks": ["扩产进度低于预期", "地缘政治风险", "设备和人员瓶颈"],
+                "catalysts": ["CoWoS产能加速释放", "AI需求持续超预期", "ASP提升"],
+                "tracking_metrics": [
+                    {"metric": "CoWoS产能利用率", "direction": "稳定", "importance": "high"},
+                    {"metric": "先进制程收入占比", "direction": "上升", "importance": "high"},
+                    {"metric": "资本开支执行率", "direction": "上升", "importance": "medium"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "台积电是AI基础设施不可替代的环节。CoWoS份额超90%，订单排到2027年，定价能力强。主要关注扩产执行进度和地缘政治风险。"
+            }, ensure_ascii=False)
+
+        else:  # Dell or default
+            return json.dumps({
+                "recommendation": "持有",
+                "confidence": 65,
+                "rationale": "AI服务器业务增长强劲，但毛利率压力和竞争加剧带来不确定性。建议等待更多数据验证。",
+                "key_risks": ["GPU服务器毛利率持续低迷", "NVIDIA供货分配不确定", "传统业务下滑超预期"],
+                "catalysts": ["FY26 Q2毛利率改善", "新企业AI订单公告", "GB200出货超预期"],
+                "tracking_metrics": [
+                    {"metric": "AI服务器毛利率", "direction": "上升", "importance": "high"},
+                    {"metric": "订单积压金额", "direction": "稳定", "importance": "high"}
+                ],
+                "time_horizon": "中期",
+                "thesis_summary": "Dell正处于AI转型关键期。AI服务器业务增长强劲但毛利率承压，传统业务持续下滑。短期内收入质量与增长速度的权衡是主要矛盾。建议关注毛利率趋势和竞争格局变化。"
+            }, ensure_ascii=False)
 
 
 class DecisionAgent:

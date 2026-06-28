@@ -1,22 +1,26 @@
 """
 Orchestrator - Coordinates the multi-agent workflow.
 
-Manages the three-phase pipeline:
-1. Research Team (information gathering)
+Manages the four-phase pipeline:
+0. ReAct Agent (intelligent information gathering with reasoning)
+1. Research Team (structured report from collected data)
 2. Debate Team (bull vs bear analysis)
 3. Decision Agent (final recommendation)
 """
 
-from typing import Optional, Callable, Generator, Tuple
+from typing import Optional, Callable, Generator, List, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 
 from .models import (
-    WorkflowState, ResearchReport, DebateResult, Decision
+    WorkflowState, ResearchReport, DebateResult, Decision,
+    SourceGroup, KeyFact, SourceReference, Sentiment
 )
 from .research_team import ResearchTeam
 from .debate_team import DebateTeam
 from .decision_agent import DecisionAgent
+from .react_agent import ReActAgent, AgentStep, AgentOutput
+from .tools import get_all_tools
 from .config import Config
 
 
@@ -49,6 +53,87 @@ class Orchestrator:
         self.research_team = ResearchTeam()
         self.debate_team = DebateTeam()
         self.decision_agent = DecisionAgent()
+        self.react_agent = ReActAgent(tools=get_all_tools(), max_steps=5)
+
+    def run_react_phase(
+        self,
+        query: str,
+        on_step: Optional[Callable[[AgentStep], None]] = None
+    ) -> AgentOutput:
+        """
+        Phase 0: Run ReAct Agent for intelligent information gathering.
+
+        Args:
+            query: User's research question
+            on_step: Callback for each reasoning step (for UI)
+
+        Returns:
+            AgentOutput with reasoning trace and collected documents
+        """
+        return self.react_agent.run(query, on_step=on_step)
+
+    def build_report_from_agent(self, agent_output: AgentOutput, query: str) -> ResearchReport:
+        """
+        Build a ResearchReport from ReAct Agent's collected documents.
+
+        Converts the agent's gathered data into the structured format
+        expected by the Debate and Decision phases.
+        """
+        documents = agent_output.collected_documents
+
+        if not documents:
+            # Fallback to normal research if agent collected nothing
+            return self.research_team.research(query)
+
+        # Group documents by source_type
+        groups = {}
+        for doc in documents:
+            source_type = doc.get("source_type", "unknown")
+            if source_type not in groups:
+                groups[source_type] = []
+            groups[source_type].append(doc)
+
+        # Build SourceGroups
+        sources = []
+        for source_type, docs in groups.items():
+            source_group = SourceGroup(
+                source_type=source_type,
+                source_name=source_type,
+                date=docs[0].get("date") if docs else None,
+                findings=[doc.get("content", "") for doc in docs],
+                raw_documents=docs
+            )
+            sources.append(source_group)
+
+        # Extract key facts
+        key_facts = []
+        for source in sources:
+            for finding in source.findings[:3]:
+                if not finding:
+                    continue
+                sentiment = Sentiment.NEUTRAL
+                if any(word in finding.lower() for word in ["增长", "上升", "强劲", "超预期", "bullish", "growth"]):
+                    sentiment = Sentiment.POSITIVE
+                elif any(word in finding.lower() for word in ["下降", "风险", "下滑", "压力", "bearish", "decline"]):
+                    sentiment = Sentiment.NEGATIVE
+
+                key_facts.append(KeyFact(
+                    content=finding[:200] + "..." if len(finding) > 200 else finding,
+                    sentiment=sentiment,
+                    source=SourceReference(
+                        source_type=source.source_name,
+                        title=source.source_name,
+                        date=source.date
+                    )
+                ))
+
+        return ResearchReport(
+            query=query,
+            sources=sources,
+            key_facts=key_facts,
+            total_sources_found=len(documents),
+            search_terms_used=[query]
+        )
 
     def run(
         self,

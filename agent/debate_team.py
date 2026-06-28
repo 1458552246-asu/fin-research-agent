@@ -77,7 +77,7 @@ class LLMClient:
 
         # 基于用户问题判断公司
         is_nvidia = "nvidia" in query_text or "英伟达" in query_text or "nvda" in query_text
-        is_hbm = "hbm" in query_text or "海力士" in query_text or "存储" in query_text
+        is_hbm = "hbm" in query_text or "海力士" in query_text or "存储" in query_text or "扩产" in query_text
         is_dell = "dell" in query_text or "戴尔" in query_text
 
         # 用 prompt 开头的角色定义来判断是 Bull 还是 Bear

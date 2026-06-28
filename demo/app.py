@@ -20,6 +20,7 @@ from agent.models import (
     ResearchReport, DebateResult, Decision,
     Recommendation, Sentiment, WorkflowState
 )
+from agent.react_agent import AgentStep, AgentOutput
 from agent.sentiment_monitor import get_market_sentiment, get_cache_age
 from agent.subscription_manager import get_subscription_manager
 
@@ -364,16 +365,40 @@ def run_agent_workflow(query: str):
             msg = msg_or_analyst
         progress_log.append(msg)
 
-    # Phase 1: Research
-    with st.status("📋 Phase 1: 研究团队收集信息...", expanded=True) as status:
+    # Phase 0: ReAct Agent Reasoning
+    agent_steps = []
+
+    def on_react_step(step: AgentStep):
+        agent_steps.append(step)
+
+    with st.status("🧠 Agent 推理中...", expanded=True) as status:
+        st.write("🤔 分析问题，规划信息收集策略...")
+        agent_output = orchestrator.run_react_phase(query, on_step=on_react_step)
+        st.write(f"✅ 完成 {len(agent_output.steps)} 步推理，确定信息收集方向")
+        status.update(label=f"✅ Agent 推理完成 ({len(agent_output.steps)} 步)", state="complete")
+
+    # Display ReAct Thinking Process
+    with st.expander("🧠 Agent 推理过程 (Thought → Action → Observation)", expanded=True):
+        for step in agent_output.steps:
+            st.markdown(f"**Step {step.step_num}**")
+            st.markdown(f"💭 **Thought:** {step.thought}")
+            action_params = ", ".join(f'{k}="{v}"' for k, v in step.action_input.items()) if step.action_input else ""
+            st.markdown(f"🔧 **Action:** `{step.action}({action_params})`")
+            st.markdown(f"👁 **Observation:** {step.observation}")
+            st.divider()
+
+    # Phase 1: Build Research Report from Agent output
+    with st.status("📋 Phase 1: 多源信息检索...", expanded=True) as status:
         st.write("🔬 基本面分析师检索 AlphaEngine (业绩会/研报)...")
-        st.write("🏭 产业链分析师检索 专家访谈...")
+        st.write("🏭 产业链分析师检索 专家访谈 (久谦中台)...")
         st.write("📱 情绪分析师检索 Twitter/Substack/AceCamp...")
 
-        research_report = orchestrator.research_team.research(query, update_progress)
+        research_report = orchestrator.build_report_from_agent(agent_output, query)
 
+        source_names = [s.source_name for s in research_report.sources]
         st.write(f"✅ 找到 {research_report.total_sources_found} 条相关信息")
-        status.update(label="✅ Phase 1 完成: 信息收集", state="complete")
+        st.write(f"📚 来源: {', '.join(source_names)}")
+        status.update(label=f"✅ Phase 1 完成: 收集 {research_report.total_sources_found} 条信息", state="complete")
 
     # Display Research Summary immediately after Phase 1
     with st.expander("📊 多源信息汇总 (按来源分类)", expanded=True):
@@ -675,7 +700,7 @@ def render_subscription_tab():
 def main():
     # Header
     st.markdown('<div class="main-header">📊 Fin Research Agent</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">多 Agent 金融研究助手 · 研究团队 → 多空辩论 → 投资决策</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">多 Agent 金融研究助手 · ReAct 推理 → 多源研究 → 多空辩论 → 投资决策</div>', unsafe_allow_html=True)
 
     # Market Sentiment
     with st.container():
@@ -697,10 +722,15 @@ def main():
 
         st.header("🤖 Agent 架构")
         st.markdown("""
-        **Phase 1: 研究团队**
-        - 基本面分析师 (AlphaEngine)
-        - 产业链分析师 (专家访谈)
-        - 情绪分析师 (Twitter/Substack)
+        **Phase 0: ReAct 推理引擎**
+        - 分析问题意图
+        - 动态选择工具 (Tool)
+        - 多步推理收集信息
+
+        **Phase 1: 研究报告**
+        - 多源信息整合
+        - 按来源分类归档
+        - 关键事实提取
 
         **Phase 2: 辩论团队**
         - 看多研究员 (Bull Analyst)
@@ -830,22 +860,26 @@ def render_about_tab():
 
     # 技术架构图
     st.markdown("## Multi-Agent 架构")
-    st.markdown("采用 **3 阶段 7 Agent** 协作模式，模拟真实投研团队工作流：")
+    st.markdown("采用 **4 阶段 ReAct + Multi-Agent** 协作模式，模拟真实投研团队工作流：")
     st.code("""
-┌──────────────────────────────────────────────────────────────────────┐
-│                      Orchestrator (工作流编排)                        │
-├──────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
-│  │ Research    │  │ Debate      │  │ Decision    │                   │
-│  │ Team        │→│ Team        │→│ Agent       │                   │
-│  │ (3 Agents)  │  │ (3 Agents)  │  │ (1 Agent)   │                   │
-│  └─────────────┘  └─────────────┘  └─────────────┘                   │
-│                                                                      │
-│  Phase 1: 研究团队          Phase 2: 辩论团队        Phase 3: 决策     │
-│  - 基本面分析师             - 看多研究员            - 综合判断        │
-│  - 产业链分析师             - 看空研究员            - 风险分析        │
-│  - 情绪分析师               - 研究经理              - 置信度评估      │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      Orchestrator (工作流编排)                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │ ReAct Agent │  │ Research    │  │ Debate      │  │ Decision    │    │
+│  │ (推理引擎)  │→│ Report      │→│ Team        │→│ Agent       │    │
+│  │ Tool选择    │  │ (信息整合)  │  │ (3 Agents)  │  │ (1 Agent)   │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
+│       │                                                                  │
+│       ├── kb_search (知识库搜索)                                         │
+│       ├── web_search (联网搜索)                                          │
+│       ├── market_sentiment (市场情绪)                                    │
+│       └── read_document (文档详读)                                       │
+│                                                                          │
+│  Phase 0: ReAct推理    Phase 1: 研究报告    Phase 2: 辩论    Phase 3: 决策│
+│  Thought→Action→Obs    多源分类整合         看多 vs 看空      综合判断    │
+│  动态Tool选择          关键事实提取         研究经理总结      置信度评估  │
+└──────────────────────────────────────────────────────────────────────────┘
     """, language=None)
 
     st.markdown("---")
