@@ -695,7 +695,10 @@ def render_subscription_tab():
 
 def main():
     # Reload config to pick up Streamlit Cloud secrets
-    Config.reload()
+    try:
+        Config.reload()
+    except Exception:
+        pass
 
     # Header
     st.markdown('<div class="main-header">📊 Fin Research Agent</div>', unsafe_allow_html=True)
