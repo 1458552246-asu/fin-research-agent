@@ -15,6 +15,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent.config import Config, KB_ID_TO_NAME
+
+# Reload config to pick up Streamlit Cloud secrets
+Config.reload()
+
 from agent.orchestrator import Orchestrator
 from agent.models import (
     ResearchReport, DebateResult, Decision,
@@ -257,8 +261,6 @@ def render_source_group(source_group):
             if file_id and not is_mock:
                 preview_url = get_preview_url(file_id)
                 st.markdown(f"🔗 [在知识库中查看原文]({preview_url})")
-            elif is_mock:
-                st.markdown("📋 *Demo 模式 - 模拟数据*")
 
             st.markdown("---")
     else:
@@ -321,8 +323,6 @@ def render_argument(arg, is_bull: bool):
             st.text(display_text)
             if preview_url:
                 st.markdown(f"🔗 [在知识库中查看完整原文]({preview_url})")
-            elif is_mock:
-                st.markdown("📋 *Demo 模式 - 模拟数据*")
 
 
 def render_decision_card(decision: Decision):
@@ -714,7 +714,7 @@ def main():
         st.header("🔧 配置")
 
         if Config.use_mock():
-            st.info("🎭 **Demo 模式**\n\n使用预置数据演示")
+            st.caption("🎭 Demo 模式 · 预置数据")
         else:
             st.success("🚀 **生产模式**\n\n已连接真实数据源")
 
@@ -806,11 +806,27 @@ def main():
 
 
 def render_about_tab():
-    """Render the About Project tab - synced with README."""
+    """Render the About Project tab - synced with README v3.0."""
     # 一句话定位
     st.markdown("## 项目定位")
     st.markdown("""
-    用 AI Agent 替代投研团队 **60% 的信息收集工作**：一次提问，自动从 5 类数据源收集信息、交叉验证、输出可溯源的多空观点和投资建议。
+    用 AI Agent 替代投研团队 **60% 的信息收集工作**：一次提问，自动从 5 类数据源收集信息、3轮结构化辩论、情景估值、输出带打分卡的投研简报。
+    """)
+
+    st.markdown("---")
+
+    # 核心特性 v3.0
+    st.markdown("## 核心特性（v3.0）")
+    st.markdown("""
+    | 特性 | 说明 |
+    |------|------|
+    | **3轮结构化辩论** | 开场→交叉质询→修正立场，加权多空比（strong=3/medium=2/weak=1） |
+    | **信息充分度检查** | 6维度评分，<60%自动回退补充检索（最多1次），避免信息不足下的误判 |
+    | **估值Agent** | 相对估值（P/E行业对比 + 历史分位）+ 三情景目标价 + 安全边际 |
+    | **5维度决策打分卡** | 基本面30% / 估值25% / 催化剂20% / 风险15% / 动量10% |
+    | **Smart Summary** | 结构化投研简报（终端文本 + JSON），适配飞书/Slack推送 |
+    | **信号检测** | 11类信号模式匹配，分级为强/中/弱 |
+    | **命中率记录** | JSONL持久化，3个月后自动回测，方向命中率 + 目标命中率统计 |
     """)
 
     st.markdown("---")
@@ -825,47 +841,57 @@ def render_about_tab():
     st.markdown("""
     | 维度 | 传统 AI 金融产品 | 本项目 |
     |------|-----------------|--------|
-    | 架构 | 问题 → LLM → 答案 | 问题 → 多源收集 → 交叉验证 → 多空对抗 → 辅助决策 |
+    | 架构 | 问题 → LLM → 答案 | 多源收集 → 3轮辩论 → 估值验证 → 打分决策 |
     | 定位 | AI 替代人 | AI 初级研究员，释放人的判断力 |
-    | 输出 | 一个结论（黑盒） | 多空论点 + 矛盾标注 + 来源追溯（白盒） |
+    | 输出 | 一个结论（黑盒） | 多空论点 + 打分卡 + 情景估值 + 来源追溯（白盒） |
     | 价值 | "给你答案" | "帮你看全，由你判断" |
+    | 跟踪 | 无反馈闭环 | 3个月命中率回测，持续校准 |
     """)
 
-    st.info("**Bull/Bear 辩论机制的认知价值**：投资决策最大的敌人是 confirmation bias（只看想看的）。强制呈现双面观点 + 标注共识与分歧，让决策者在充分信息下做判断。")
+    st.info("**Bull/Bear 辩论 + 交叉质询的认知价值**：投资决策最大的敌人是 confirmation bias。3轮辩论强制呈现双面观点 + 质询弱点 + 标注翻转条件，让决策者在充分信息下做判断。")
 
     st.markdown("---")
 
     # 系统架构
-    st.markdown("## 系统架构")
-    st.markdown("采用 **4 阶段 ReAct + Multi-Agent** 协作模式：")
+    st.markdown("## 系统架构（v3.0）")
+    st.markdown("采用 **5 阶段 Multi-Agent Pipeline** 协作模式：")
     st.code("""
-用户问题: "HBM产能扩张节奏？"
+用户问题: "分析NVDA投资价值"
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 0: ReAct Agent (推理引擎)                                 │
-│  Thought → Action → Observation 循环                             │
-│  动态选择 Tool: kb_search / web_search / sentiment / read_doc    │
-└─────────────────────────────────────────────────────────────────┘
-         │ 收集 30+ 篇真实文档
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 1: Research Report (多源信息整合)                          │
-│  按来源分组 → 关键事实提取 → 矛盾标注                             │
-│  数据源: 久谦中台 / Substack / AceCampTech / AlphaEngine / Twitter │
+│  Phase 1: Research Team (多源信息收集)                            │
+│  5类数据源并行检索 → 关键事实提取 → 正负面标注                     │
 └─────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 2: Debate Team (结构化多空辩论)                            │
-│  看多研究员 vs 看空研究员 → 研究经理总结                           │
-│  输出: 论点 + 证据 + 来源追溯 + 多空比 + 共识/分歧               │
+│  Phase 2: Debate Team (3轮结构化辩论)                             │
+│  Round 1: 开场立论（Bull vs Bear）                                │
+│  Round 2: 交叉质询（接受/反驳/追问）                              │
+│  Round 3: 修正立场（翻转条件）                                    │
+│  Moderator: 加权多空比 + 信息缺口 + 翻转触发条件                  │
+│  ── 信息充分度检查（<60% 回退补充，最多1次）──                    │
 └─────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 3: Decision Agent (投资决策)                               │
-│  建议(买入/持有/卖出) + 置信度 + 风险 + 催化剂 + 跟踪指标         │
+│  Phase 3: Valuation Agent (相对估值 + 情景分析)                    │
+│  P/E vs 行业/历史 → 三情景目标价（Bull/Base/Bear）                │
+│  加权目标价 + 安全边际评估                                        │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 4: Decision Agent (投资决策)                               │
+│  建议(强烈买入→强烈卖出) + 置信度 + 风险 + 催化剂                 │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 5: Signal Detection + Scorecard + Smart Summary            │
+│  信号分级（强/中/弱）→ 5维度打分卡 → 投研简报输出                 │
+│  命中率记录系统（3个月后自动回测）                                 │
 └─────────────────────────────────────────────────────────────────┘
     """, language=None)
 
@@ -876,11 +902,14 @@ def render_about_tab():
     st.markdown("""
     | 模块 | 设计要点 |
     |------|---------|
-    | **ReAct Agent** | Thought→Action→Observation 循环，动态 Tool 选择，max_steps=5 防无限循环 |
-    | **Tool 抽象层** | BaseTool ABC + 4 个具体实现，关键词提取 fallback 解决金融文档检索难题 |
-    | **多源融合** | 5 类数据源统一接口，两步检索（宽召回 + 精准定位），矛盾自动标注 |
-    | **辩论机制** | 3-Agent 协作（Bull/Bear/Moderator），量化多空比，共识提取 |
-    | **Graceful Degradation** | LLM 不可用时自动 fallback 到 mock 推理链 + 真实 Tool 执行 |
+    | **统一 LLM Client** | OpenAI 兼容接口 + httpx 代理支持，支持多模型切换 |
+    | **3轮辩论引擎** | Round1开场 → Round2交叉质询(accept/rebut/question) → Round3修正 + 加权比 |
+    | **估值Agent** | 相对估值(P/E分位) + 三情景加权目标价，无DCF避免参数敏感 |
+    | **充分度检查** | 6维评分(论点/事实/源多样性/证据质量)，阈值60%触发补充 |
+    | **打分卡系统** | 5维度加权(基本面/估值/催化/风险/动量)，score→仓位映射 |
+    | **信号检测** | 11类模式 + 正则匹配，分级推送策略 |
+    | **命中率回测** | JSONL存储 + 90天自动评估，方向/目标两维度 |
+    | **Graceful Degradation** | LLM 不可用时 fallback 到 mock 数据，保证 Demo 可用 |
     """)
 
     st.markdown("---")
@@ -909,10 +938,10 @@ def render_about_tab():
     | 层 | 选型 |
     |----|------|
     | 前端 | Streamlit |
-    | LLM | Claude (Anthropic) |
+    | LLM | Claude (通过 OpenAI 兼容接口) |
     | 知识库 | 自建 RAG API (5 类数据源) |
-    | 架构 | ReAct + Multi-Agent Orchestration |
-    | 部署 | Streamlit + Cloudflare Tunnel |
+    | 架构 | Multi-Agent Pipeline (5 Phase) |
+    | 部署 | Streamlit Cloud |
     """)
 
 

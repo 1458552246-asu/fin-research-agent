@@ -13,24 +13,54 @@ except ImportError:
     pass  # dotenv not installed, use environment variables directly
 
 
+def _get_secret(key: str, default: str = "") -> str:
+    """Get a config value from env vars or Streamlit Cloud secrets."""
+    # 1. Try os.getenv first (works locally with .env)
+    val = os.getenv(key, "")
+    if val:
+        return val
+
+    # 2. Try Streamlit secrets (works on Streamlit Cloud)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+
+    return default
+
+
 class Config:
     """Application configuration from environment variables."""
 
     # LLM API for Bull/Bear analysis (OpenAI-compatible)
-    LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-4-6-20250228")
+    LLM_API_KEY = _get_secret("LLM_API_KEY")
+    LLM_BASE_URL = _get_secret("LLM_BASE_URL", "https://api.openai.com/v1")
+    LLM_MODEL = _get_secret("LLM_MODEL", "claude-sonnet-4-20250514")
 
     # Legacy support for ANTHROPIC_API_KEY
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
 
     # Knowledge Base API (production)
-    KB_API_BASE_URL = os.getenv("KB_API_BASE_URL", "")
-    KB_USERNAME = os.getenv("KB_API_USERNAME", "")
-    KB_PASSWORD = os.getenv("KB_API_PASSWORD", "")
+    KB_API_BASE_URL = _get_secret("KB_API_BASE_URL")
+    KB_USERNAME = _get_secret("KB_API_USERNAME")
+    KB_PASSWORD = _get_secret("KB_API_PASSWORD")
 
     # Demo mode - use mock data
-    DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
+    DEMO_MODE = _get_secret("DEMO_MODE", "false").lower() == "true"
+
+    @classmethod
+    def reload(cls):
+        """Reload config (useful after secrets become available)."""
+        cls.LLM_API_KEY = _get_secret("LLM_API_KEY")
+        cls.LLM_BASE_URL = _get_secret("LLM_BASE_URL", "https://api.openai.com/v1")
+        cls.LLM_MODEL = _get_secret("LLM_MODEL", "claude-sonnet-4-20250514")
+        cls.ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
+        cls.KB_API_BASE_URL = _get_secret("KB_API_BASE_URL")
+        cls.KB_USERNAME = _get_secret("KB_API_USERNAME")
+        cls.KB_PASSWORD = _get_secret("KB_API_PASSWORD")
+        cls.DEMO_MODE = _get_secret("DEMO_MODE", "false").lower() == "true"
 
     @classmethod
     def is_production_ready(cls) -> bool:
