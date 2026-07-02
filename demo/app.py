@@ -780,12 +780,21 @@ def main():
             with quick_cols[i]:
                 if st.button(label, use_container_width=True):
                     st.session_state.query = q
+                    st.session_state.run_analysis = True
                     st.rerun()
 
-        # Run analysis
-        if analyze_btn and query:
-            st.divider()
-            run_agent_workflow(query)
+        # Run analysis - triggered by button or quick query
+        should_run = (analyze_btn and query) or st.session_state.get("run_analysis", False)
+        if should_run:
+            run_query = query or st.session_state.get("query", "")
+            # Clear the trigger flag
+            if "run_analysis" in st.session_state:
+                del st.session_state["run_analysis"]
+            if run_query:
+                st.divider()
+                run_agent_workflow(run_query)
+            else:
+                st.warning("请输入研究问题")
         elif analyze_btn and not query:
             st.warning("请输入研究问题")
 
