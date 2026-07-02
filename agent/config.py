@@ -23,8 +23,10 @@ def _get_secret(key: str, default: str = "") -> str:
     # 2. Try Streamlit secrets (works on Streamlit Cloud)
     try:
         import streamlit as st
-        if hasattr(st, "secrets") and key in st.secrets:
-            return str(st.secrets[key])
+        if hasattr(st, "secrets"):
+            secrets = st.secrets
+            if key in secrets:
+                return str(secrets[key])
     except Exception:
         pass
 

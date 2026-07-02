@@ -15,10 +15,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent.config import Config, KB_ID_TO_NAME
-
-# Reload config to pick up Streamlit Cloud secrets
-Config.reload()
-
 from agent.orchestrator import Orchestrator
 from agent.models import (
     ResearchReport, DebateResult, Decision,
@@ -698,6 +694,9 @@ def render_subscription_tab():
 # =============================================================================
 
 def main():
+    # Reload config to pick up Streamlit Cloud secrets
+    Config.reload()
+
     # Header
     st.markdown('<div class="main-header">📊 Fin Research Agent</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">多 Agent 金融研究助手 · ReAct 推理 → 多源研究 → 多空辩论 → 投资决策</div>', unsafe_allow_html=True)
