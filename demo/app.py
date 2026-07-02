@@ -313,10 +313,13 @@ def render_argument(arg, is_bull: bool):
     """, unsafe_allow_html=True)
 
     # 原文展示 - 使用 Streamlit 原生 expander 而非 HTML details
-    if original_text:
-        display_text = original_text[:500] + ("..." if len(original_text) > 500 else "")
+    if original_text or preview_url:
         with st.expander("📄 查看原文依据", expanded=False):
-            st.text(display_text)
+            if original_text:
+                display_text = original_text[:500] + ("..." if len(original_text) > 500 else "")
+                st.text(display_text)
+            else:
+                st.markdown("📄 点击下方链接查看文档完整内容")
             if preview_url:
                 st.markdown(f"🔗 [在知识库中查看完整原文]({preview_url})")
 

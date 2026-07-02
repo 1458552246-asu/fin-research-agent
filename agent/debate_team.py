@@ -287,8 +287,8 @@ class DebateTeam:
         bull_result = self._run_round1(query, research_summary, key_facts, "bull", progress_callback)
         bear_result = self._run_round1(query, research_summary, key_facts, "bear", progress_callback)
 
-        result.bull_arguments = self._to_arguments(bull_result.get("arguments", []), "bull")
-        result.bear_arguments = self._to_arguments(bear_result.get("arguments", []), "bear")
+        result.bull_arguments = self._to_arguments(bull_result.get("arguments", []), "bull", research_report)
+        result.bear_arguments = self._to_arguments(bear_result.get("arguments", []), "bear", research_report)
         result.debate_rounds.append(DebateRound(
             round_num=1, round_type="opening",
             exchanges=[
@@ -519,8 +519,16 @@ class DebateTeam:
                 lines.append(f"   证据: {evidence}")
         return "\n".join(lines) if lines else "（无论点）"
 
-    def _to_arguments(self, arg_list: List[Dict], side: str) -> List[Argument]:
-        """Convert dict list to Argument model objects."""
+    def _to_arguments(self, arg_list: List[Dict], side: str, research_report: ResearchReport = None) -> List[Argument]:
+        """Convert dict list to Argument model objects, matching sources to KB documents."""
+        # Build lookup of raw documents from research report for source tracing
+        raw_docs = []
+        if research_report:
+            for sg in research_report.sources:
+                for doc in sg.raw_documents:
+                    if doc.get("file_id"):
+                        raw_docs.append(doc)
+
         arguments = []
         for arg in arg_list:
             if not isinstance(arg, dict):
@@ -532,11 +540,22 @@ class DebateTeam:
 
             source_ref = None
             if arg.get("source"):
-                source_ref = SourceReference(
-                    source_type=side,
-                    title=arg["source"],
-                    preview=arg.get("evidence", "")
-                )
+                # Try to match argument source text to a real KB document
+                matched_doc = self._match_source_to_doc(arg.get("source", ""), arg.get("evidence", ""), raw_docs)
+                if matched_doc:
+                    source_ref = SourceReference(
+                        source_type=matched_doc.get("source_type", side),
+                        title=matched_doc.get("title", matched_doc.get("file_name", arg["source"])),
+                        date=matched_doc.get("date", ""),
+                        file_id=matched_doc.get("file_id"),
+                        preview=matched_doc.get("content", arg.get("evidence", ""))[:500]
+                    )
+                else:
+                    source_ref = SourceReference(
+                        source_type=side,
+                        title=arg["source"],
+                        preview=arg.get("evidence", "")
+                    )
 
             arguments.append(Argument(
                 point=arg.get("point", ""),
@@ -546,6 +565,60 @@ class DebateTeam:
                 rebuttal=arg.get("potential_rebuttal")
             ))
         return arguments
+
+    def _match_source_to_doc(self, source_text: str, evidence: str, raw_docs: List[Dict]) -> Optional[Dict]:
+        """Try to match an argument's source description to a real KB document.
+
+        Matching strategy:
+        1. Keyword overlap between source_text/evidence and document content/title
+        2. Source type keyword matching (e.g. "财报" → AlphaEngine, "专家" → 专家访谈)
+        """
+        if not raw_docs:
+            return None
+
+        source_lower = source_text.lower()
+        evidence_lower = evidence.lower()
+
+        # Source type keyword mapping
+        type_keywords = {
+            "专家访谈": ["专家", "访谈", "调研", "expert"],
+            "AlphaEngine": ["财报", "研报", "report", "earnings", "alpha", "业绩"],
+            "Twitter推文": ["twitter", "推特", "tweet"],
+            "Substack": ["substack", "newsletter"],
+            "AceCampTech": ["acecamp", "ace"],
+        }
+
+        # Find best matching document
+        best_doc = None
+        best_score = 0
+
+        for doc in raw_docs:
+            score = 0
+            doc_type = doc.get("source_type", "")
+            doc_title = (doc.get("title", "") or doc.get("file_name", "")).lower()
+            doc_content = (doc.get("content", ""))[:500].lower()
+
+            # Check source type keyword match
+            for stype, keywords in type_keywords.items():
+                if any(kw in source_lower for kw in keywords):
+                    if doc_type == stype or stype.lower() in doc_type.lower():
+                        score += 3
+                    break
+
+            # Check title/content overlap with evidence
+            evidence_words = [w for w in evidence_lower.split() if len(w) > 2]
+            for word in evidence_words[:10]:
+                if word in doc_content or word in doc_title:
+                    score += 1
+
+            if score > best_score:
+                best_score = score
+                best_doc = doc
+
+        # Only return if we have a reasonable match (score >= 2)
+        if best_score >= 2 and best_doc:
+            return best_doc
+        return None
 
     def _rebuttals_to_exchanges(self, bull_rebuttals: Dict, bear_rebuttals: Dict) -> List[DebateExchange]:
         """Convert rebuttals to DebateExchange list."""
