@@ -13,6 +13,15 @@ from .models import (
 from .research_team import ResearchTeam, run_research
 from .debate_team import DebateTeam, run_debate
 from .decision_agent import DecisionAgent, make_decision
+from .valuation_agent import ValuationAgent, ValuationResult
+from .signal_detection import SignalDetectionAgent, SignalReport, Signal, SignalLevel
+
+# Hit rate tracking
+from .hit_rate_tracker import HitRateTracker, AnalysisRecord, BacktestSummary
+
+# Scorecard & Summary
+from .scorecard import Scorecard, DimensionScore, build_scorecard
+from .smart_summary import generate_smart_summary, generate_summary_json
 
 # Main orchestrator
 from .orchestrator import Orchestrator, analyze, analyze_streaming
@@ -33,7 +42,10 @@ __all__ = [
     "Recommendation", "Sentiment", "SourceType",
     "KeyFact", "DataPoint", "Argument", "SourceReference",
     # Teams
-    "ResearchTeam", "DebateTeam", "DecisionAgent", "Orchestrator",
+    "ResearchTeam", "DebateTeam", "DecisionAgent", "ValuationAgent", "Orchestrator",
+    # Scorecard & Summary
+    "Scorecard", "DimensionScore", "build_scorecard",
+    "generate_smart_summary", "generate_summary_json",
     # ReAct Agent & Tools
     "ReActAgent", "AgentStep", "AgentOutput",
     "BaseTool", "ToolResult", "get_all_tools", "get_tool_by_name",

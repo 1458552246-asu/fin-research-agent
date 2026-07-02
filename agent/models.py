@@ -188,6 +188,7 @@ class DebateResult:
     - BullAnalyst arguments
     - BearAnalyst arguments
     - Moderator summary of consensus/disputes
+    - Information gaps and flip triggers (from 3-round debate)
     """
     query: str
     bull_arguments: List[Argument] = field(default_factory=list)
@@ -197,6 +198,8 @@ class DebateResult:
     disputes: List[str] = field(default_factory=list)         # Key disagreements
     bull_bear_ratio: float = 0.5        # 0=全看空, 0.5=中性, 1=全看多
     moderator_summary: Optional[str] = None
+    information_gaps: List[str] = field(default_factory=list)  # Data needed for better judgment
+    flip_triggers: List[str] = field(default_factory=list)     # Conditions that would flip conclusion
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def get_bull_strength(self) -> float:
@@ -283,19 +286,26 @@ class WorkflowState:
     """
     Tracks the state of the entire multi-agent workflow.
     Used by Orchestrator to manage phase transitions.
+
+    Phases: 1=Research, 2=Debate, 3=Valuation, 4=Decision, 5=Signal
     """
     query: str
-    current_phase: int = 0                    # 0=not started, 1=research, 2=debate, 3=decision
+    current_phase: int = 0                    # 0=not started, 1-5=phases
     research_report: Optional[ResearchReport] = None
     debate_result: Optional[DebateResult] = None
+    valuation_result: Optional[Any] = None    # ValuationResult (avoid circular import)
     decision: Optional[Decision] = None
+    signal_report: Optional[Any] = None       # SignalReport (avoid circular import)
+    scorecard: Optional[Any] = None           # Scorecard (avoid circular import)
+    smart_summary: Optional[str] = None       # Formatted text summary
+    summary_json: Optional[Dict] = None       # JSON summary for API/webhook
     errors: List[str] = field(default_factory=list)
     started_at: str = field(default_factory=lambda: datetime.now().isoformat())
     completed_at: Optional[str] = None
 
     def is_complete(self) -> bool:
         """Check if workflow is complete."""
-        return self.current_phase >= 3 and self.decision is not None
+        return self.current_phase >= 5 and self.decision is not None
 
     def mark_complete(self):
         """Mark workflow as complete."""

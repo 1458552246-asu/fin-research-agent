@@ -25,3 +25,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Data (analysis records, local state)
+data/records/

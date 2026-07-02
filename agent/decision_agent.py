@@ -14,45 +14,23 @@ from .models import (
 )
 from .prompts import DECISION_AGENT_PROMPT, PRICE_TARGET_PROMPT
 from .config import Config
+from .llm_client import LLMClient, LLMError
 
 
-class LLMClient:
-    """Simple LLM client for decision prompts."""
+class DecisionLLMClient:
+    """LLM client wrapper for decision agent with mock fallback."""
 
     def __init__(self):
-        self.api_key = Config.LLM_API_KEY
-        self.base_url = Config.LLM_BASE_URL
-        self.model = Config.LLM_MODEL
+        self._client = LLMClient(temperature=0.2, max_tokens=3000)
 
     def chat(self, prompt: str, system: str = None) -> str:
-        """Send a chat completion request."""
-        if not self.api_key:
+        """Send a chat completion request, fallback to mock if unavailable."""
+        if not self._client.is_configured:
             return self._mock_response(prompt)
 
         try:
-            import openai
-            import httpx
-            # Create custom httpx client to avoid 'proxies' parameter issue with httpx 0.28+
-            http_client = httpx.Client(timeout=60.0)
-            client = openai.OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                http_client=http_client
-            )
-
-            messages = []
-            if system:
-                messages.append({"role": "system", "content": system})
-            messages.append({"role": "user", "content": prompt})
-
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=0.2,  # Lower temperature for consistent decisions
-                max_tokens=3000
-            )
-            return response.choices[0].message.content
-        except Exception as e:
+            return self._client.chat(prompt, system=system)
+        except LLMError as e:
             print(f"LLM API error: {e}")
             return self._mock_response(prompt)
 
@@ -171,7 +149,7 @@ class DecisionAgent:
 
     def __init__(self):
         self.name = "投资决策Agent"
-        self.llm = LLMClient()
+        self.llm = DecisionLLMClient()
 
     def decide(
         self,
