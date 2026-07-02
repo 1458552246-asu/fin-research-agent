@@ -265,8 +265,14 @@ def render_source_group(source_group):
             st.markdown(f"• {finding}")
 
 
-def render_argument(arg, is_bull: bool):
-    """Render a debate argument with full source tracing."""
+def render_argument(arg, is_bull: bool, research_report=None):
+    """Render a debate argument with full source tracing.
+
+    Args:
+        arg: Argument object
+        is_bull: Whether this is a bull argument
+        research_report: Optional ResearchReport for source tracing links
+    """
     from agent.source_tracer import get_preview_url
 
     box_class = "bull-box" if is_bull else "bear-box"
@@ -276,16 +282,14 @@ def render_argument(arg, is_bull: bool):
     source_info = ""
     preview_url = ""
     original_text = ""
-    is_mock = False
+    matched_docs = []
+
     if arg.source:
         source_type = arg.source.source_type or "分析"
         source_title = arg.source.title or ""
         source_date = arg.source.date or ""
         file_id = arg.source.file_id or ""
         original_text = arg.source.preview or ""  # 原文内容
-
-        # 判断是否为 mock 数据（通过 file_id 是否存在来判断）
-        is_mock = not file_id
 
         source_header = f"📌 来源: 【{source_type}】"
         if source_title:
@@ -294,11 +298,14 @@ def render_argument(arg, is_bull: bool):
             source_header += f" · {source_date}"
         if file_id:
             source_header += f" (ID: {file_id})"
-            # 使用统一的 URL 生成函数
             preview_url = get_preview_url(file_id)
         source_info = f'<div style="color: #1976d2; font-size: 0.8rem; margin-top: 8px;">{source_header}</div>'
     else:
         source_info = '<div style="color: #888; font-size: 0.8rem; margin-top: 8px;">📌 来源: 分析推断</div>'
+
+    # 从 research_report 中查找相关文档的预览链接
+    if not preview_url and research_report:
+        matched_docs = _find_related_docs(arg, research_report)
 
     # 主体内容渲染 (不包含原文，原文用 Streamlit expander)
     st.markdown(f"""
@@ -313,15 +320,106 @@ def render_argument(arg, is_bull: bool):
     """, unsafe_allow_html=True)
 
     # 原文展示 - 使用 Streamlit 原生 expander 而非 HTML details
-    if original_text or preview_url:
+    if original_text or preview_url or matched_docs:
         with st.expander("📄 查看原文依据", expanded=False):
             if original_text:
                 display_text = original_text[:500] + ("..." if len(original_text) > 500 else "")
                 st.text(display_text)
-            else:
-                st.markdown("📄 点击下方链接查看文档完整内容")
             if preview_url:
                 st.markdown(f"🔗 [在知识库中查看完整原文]({preview_url})")
+            elif matched_docs:
+                # 显示从研究报告中匹配到的相关文档链接
+                for doc in matched_docs:
+                    doc_title = doc.get("title", doc.get("file_name", "相关文档"))
+                    doc_url = get_preview_url(doc["file_id"])
+                    doc_source = doc.get("source_type", "")
+                    label = f"【{doc_source}】{doc_title}" if doc_source else doc_title
+                    st.markdown(f"🔗 [{label}]({doc_url})")
+
+
+def _find_related_docs(arg, research_report) -> list:
+    """Find related KB documents for a debate argument from the research report.
+
+    Uses keyword matching between the argument's evidence/point and document content.
+    Returns up to 2 most relevant documents with file_id.
+    """
+    if not research_report or not research_report.sources:
+        return []
+
+    # 收集所有有效的 KB 文档(非mock且有file_id)
+    all_valid_docs = []
+    for sg in research_report.sources:
+        for doc in sg.raw_documents:
+            file_id = doc.get("file_id")
+            is_mock = doc.get("is_mock", False)
+            if file_id and not is_mock:
+                all_valid_docs.append(doc)
+
+    if not all_valid_docs:
+        return []
+
+    evidence_text = (arg.evidence or "").lower() + " " + (arg.point or "").lower()
+    source_title = ""
+    if arg.source:
+        source_title = (arg.source.title or "").lower()
+
+    candidates = []
+
+    for doc in all_valid_docs:
+        score = 0
+        doc_content = (doc.get("content", "") or "")[:500].lower()
+        doc_title = (doc.get("title", "") or doc.get("file_name", "")).lower()
+        doc_source_type = (doc.get("source_type", "") or "").lower()
+
+        # 来源类型关键词匹配
+        source_keywords = {
+            "财报": ["alphaengine", "alpha"],
+            "业绩": ["alphaengine", "alpha"],
+            "研报": ["alphaengine", "alpha"],
+            "report": ["alphaengine", "alpha"],
+            "公司财报": ["alphaengine", "alpha"],
+            "业绩会": ["alphaengine", "alpha"],
+            "专家": ["专家访谈"],
+            "访谈": ["专家访谈"],
+            "行业": ["专家访谈", "acecamptech"],
+            "twitter": ["twitter"],
+            "推特": ["twitter"],
+            "substack": ["substack"],
+            "市场数据": ["alphaengine", "alpha"],
+            "行业研报": ["alphaengine", "alpha", "acecamptech"],
+            "行业分析": ["acecamptech", "专家访谈"],
+        }
+
+        # 根据 argument source title 匹配文档的 source_type
+        for keyword, types in source_keywords.items():
+            if keyword in source_title:
+                if any(t in doc_source_type for t in types):
+                    score += 5
+                break
+
+        # 关键词重叠: argument evidence vs document content
+        evidence_words = set(w for w in evidence_text.split() if len(w) >= 2)
+        for word in list(evidence_words)[:15]:
+            if word in doc_content or word in doc_title:
+                score += 1
+
+        candidates.append((score, doc))
+
+    # 按分数排序，返回最高分的（至少1个，最多2个）
+    candidates.sort(key=lambda x: x[0], reverse=True)
+
+    # 只要有 valid docs，至少返回最相关的1个
+    if candidates and candidates[0][0] >= 1:
+        result = [candidates[0][1]]
+        if len(candidates) > 1 and candidates[1][0] >= 3:
+            result.append(candidates[1][1])
+        return result
+
+    # 如果没有任何匹配，但有可用文档，返回第一个作为兜底
+    if all_valid_docs:
+        return [all_valid_docs[0]]
+
+    return []
 
 
 def render_decision_card(decision: Decision):
@@ -435,12 +533,12 @@ def run_agent_workflow(query: str):
     with col1:
         st.markdown("#### 🐂 看多论点")
         for arg in debate_result.bull_arguments:
-            render_argument(arg, is_bull=True)
+            render_argument(arg, is_bull=True, research_report=research_report)
 
     with col2:
         st.markdown("#### 🐻 看空论点")
         for arg in debate_result.bear_arguments:
-            render_argument(arg, is_bull=False)
+            render_argument(arg, is_bull=False, research_report=research_report)
 
     # Moderator Summary
     if debate_result.moderator_summary:
